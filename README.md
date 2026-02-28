@@ -1,5 +1,3 @@
-Copy and paste this entire block into your README.md and you’re good to commit!
-
 Markdown
 # 🛡️ TradeFilter: Hybrid Algo-Discretionary Terminal
 
