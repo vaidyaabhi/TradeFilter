@@ -24,9 +24,14 @@ We have standardized the project on **Python 3.11.x**. Follow these steps to get
 
 ### 1. Clone the Project
 Open your terminal or command prompt and run:
+
+abhishekvaidya@Abhisheks-MacBook-Air Desktop % ### 1. Clone the Project
+Open your terminal and run:
 ```bash
-git clone [https://github.com/vaidyaabhi/TradeFilter.git](https://github.com/vaidyaabhi/TradeFilter.git)
+git clone https://github.com/vaidyaabhi/TradeFilter.git
 cd TradeFilter
+
+
 2. Run the One-Command Setup
 This script automatically detects your OS, creates a venv, installs all libraries, and initializes your database:
 
