@@ -25,7 +25,7 @@ We have standardized the project on **Python 3.11.x**. Follow these steps to get
 ### 1. Clone the Project
 Open your terminal or command prompt and run:
 ```bash
-git clone [https://github.com/vaidyaabhi/TradeFilter.git](https://github.com/vaidyaabhi/TradeFilter.git)
+git clone https://github.com/vaidyaabhi/TradeFilter.git
 cd TradeFilter
 ```
 2. Run the One-Command Setup
