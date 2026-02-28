@@ -11,6 +11,17 @@ def run_cmd(cmd):
 
 def setup():
     print("🚀 Starting TradeFilter Setup...")
+
+    # Add this inside your setup() function
+if not os.path.exists(".env"):
+    print("📝 Creating .env file from template...")
+    with open(".env", "w") as f:
+        f.write("FYERS_CLIENT_ID=\n")
+        f.write("FYERS_SECRET_KEY=\n")
+        f.write("FYERS_ACCESS_TOKEN=\n")
+        f.write("TELE_TOKEN=\n")
+        f.write("TELE_CHAT_ID=\n")
+    print("⚠️  Action Required: Open the .env file and paste your API keys!")
     
     # 1. Create Virtual Environment
     if not os.path.exists("venv"):
