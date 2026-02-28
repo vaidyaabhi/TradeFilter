@@ -12,8 +12,7 @@ def run_cmd(cmd):
 def setup():
     print("🚀 Starting TradeFilter Setup...")
 
-    # Add this inside your setup() function
-if not os.path.exists(".env"):
+    if not os.path.exists(".env"):
     print("📝 Creating .env file from template...")
     with open(".env", "w") as f:
         f.write("FYERS_CLIENT_ID=\n")
