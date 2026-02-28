@@ -18,8 +18,8 @@ def get_access_token():
         grant_type="authorization_code"
     )
 
-    # 3. Generate Auth URL
-    auth_url = session.generate_auth_code()
+    # 3. Generate Auth URL (Fixed method name here)
+    auth_url = session.generate_authcode()
     print(f"👉 Open this link in your browser:\n{auth_url}\n")
     
     # 4. Paste the code from the redirect URL
