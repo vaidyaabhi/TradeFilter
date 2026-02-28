@@ -31,7 +31,7 @@ cd TradeFilter
 2. Run the One-Command Setup
 This script automatically detects your OS, creates a venv, installs all libraries, and initializes your database:
 ```Bash
-python setup_project.py
+python setup.py
 ```
 3. Activate Your Environment
 Once the setup is finished, you MUST activate the virtual environment in every new terminal window:
