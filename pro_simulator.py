@@ -1,59 +1,82 @@
+import os
 import sqlite3
 from datetime import datetime
+from dotenv import load_dotenv
+from fyers_apiv3 import fyersModel
+
+# Always load the fresh token from .env
+load_dotenv(override=True)
 
 class ProSimulator:
-    def __init__(self, limit=2, db_path='trading.db'):
+    def __init__(self, limit=2):
         self.limit = limit
-        self.db_path = db_path
+        self.client_id = os.getenv("FYERS_CLIENT_ID")
+        self.access_token = os.getenv("FYERS_ACCESS_TOKEN")
+        
+        # Initialize Fyers Model
+        self.fyers = fyersModel.FyersModel(
+            client_id=self.client_id, 
+            token=self.access_token, 
+            is_async=False, 
+            log_path=""
+        )
+
+    def get_fyers_balance(self):
+        """Fetches live Available Balance from Fyers"""
+        try:
+            funds = self.fyers.funds()
+            if funds.get('s') == 'ok':
+                # Extract 'Total Balance' from the fund_limit list
+                for item in funds.get('fund_limit', []):
+                    if item.get('title') == 'Total Balance':
+                        return float(item.get('value', 0.0))
+        except Exception:
+            return 0.0
+        return 0.0
 
     def get_session_stats(self):
-        """
-        Calculates P&L and Trade counts for the UI header.
-        This keeps the logic separate from the Frontend.
-        """
-        conn = sqlite3.connect(self.db_path)
+        """Calculates trade count and active positions from DB"""
+        conn = sqlite3.connect('trading.db')
         cursor = conn.cursor()
         
-        # 1. Count today's trades
+        # Count trades taken today
         cursor.execute("SELECT COUNT(*) FROM trades WHERE date(timestamp) = date('now')")
         count = cursor.fetchone()[0]
         
-        # 2. Fetch active trades for the UI table
-        cursor.execute("SELECT symbol, side, entry_price, status FROM trades WHERE date(timestamp) = date('now')")
-        active_rows = cursor.fetchall()
-        active_trades = [{"Symbol": r[0], "Side": r[1], "Entry": r[2], "Status": r[3]} for r in active_rows]
+        # Get active trades for the table
+        cursor.execute("SELECT symbol, side, entry_price, status, timestamp FROM trades ORDER BY timestamp DESC")
+        rows = cursor.fetchall()
         
+        active_trades = []
+        for r in rows:
+            active_trades.append({
+                "Symbol": r[0], "Side": r[1], 
+                "Entry": r[2], "Status": r[3], "Time": r[4]
+            })
+            
         conn.close()
-
-        # Mock P&L calculation - this will be updated with your v9 real-time Fyers P&L
         return {
-            "pnl": 0.0,
-            "pnl_pct": 0.0,
-            "count": count,
-            "active": True,
-            "active_trades": active_trades
+            "pnl": 0.00, "pnl_pct": 0.0, 
+            "count": count, "active_trades": active_trades
         }
 
     def execute_trade(self, symbol, side):
-        """
-        Main execution logic: Checks limits and applies v9 breakout rules.
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # LOGIC FILTER: Prevent over-trading (Abhishek & Ganesh 1/2 Limit)
-        cursor.execute("SELECT COUNT(*) FROM trades WHERE date(timestamp) = date('now')")
-        if cursor.fetchone()[0] >= self.limit:
-            conn.close()
+        """Checks limits and saves trade to DB"""
+        stats = self.get_session_stats()
+        if stats['count'] >= self.limit:
             return False, f"Limit Reached ({self.limit}/{self.limit}). Discipline first!"
 
-        # STRATEGY LOGIC: Record the intent to trade
-        # In your v9 setup, you would add logic here to fetch the 5-min High/Low from Fyers
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cursor.execute('''INSERT INTO trades (symbol, side, entry_price, status, timestamp) 
-                          VALUES (?, ?, ?, ?, ?)''', 
-                       (symbol, side, 0.0, 'MONITORING', now))
-        
-        conn.commit()
-        conn.close()
-        return True, f"Monitoring {symbol} for {side} breakout. 3-Strike Protection Active."
+        conn = sqlite3.connect('trading.db')
+        cursor = conn.cursor()
+        try:
+            # For now, we use a mock price of 0.00. 
+            # In live v9, we would fetch ltp from self.fyers.get_quotes()
+            now = datetime.now().strftime("%H:%M:%S")
+            cursor.execute("INSERT INTO trades (symbol, side, entry_price, status, timestamp) VALUES (?, ?, ?, ?, ?)",
+                           (symbol, side, 0.00, "MONITORING", now))
+            conn.commit()
+            return True, f"Monitoring {symbol} for {side} breakout"
+        except Exception as e:
+            return False, str(e)
+        finally:
+            conn.close()
