@@ -10,3 +10,4 @@ options_log.csv
 *.yml
 venv/
 *.db
+fyersApi.log
