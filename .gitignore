@@ -11,3 +11,6 @@ options_log.csv
 venv/
 *.db
 fyersApi.log
+fyersApi.log
+refresh_token.txt
+setup.py
