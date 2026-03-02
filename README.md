@@ -1,46 +1,14 @@
-Markdown
-# 🛡️ TradeFilter: Hybrid Algo-Discretionary Terminal
+# 🛡️ TradeFilter Terminal v9
 
-**TradeFilter** is a professional-grade trading system designed to bridge the gap between automated scanning (Chartink) and manual visual confirmation. It automates the sorting of market alerts, allowing the trader to focus only on high-probability setups.
+Professional intraday filtering and execution terminal with a side-by-side Bullish/Bearish view and a 2-trade discipline limit.
 
----
+## 🚀 Quick Start for Ganesh
+1. **Sync**: `git pull origin main`
+2. **Install**: `pip install python-dotenv streamlit-autorefresh flask fyers-apiv3`
+3. **Setup**: Create a `.env` file with your Fyers and Telegram credentials.
+4. **Initialize**: `python db_setup.py`
 
-## 🏗️ Architecture & Workflow
-
-The system uses a **Decoupled Local Architecture** to ensure speed and reliability between collaborators.
-
-1.  **Ingestion:** Real-time stock alerts are pushed from **Chartink** via **ngrok** to a local **FastAPI** listener.
-2.  **Processing:** A ranking engine fetches live data via **Fyers API** and assigns a "Quality Score" to each stock.
-3.  **Visualization:** A **Streamlit** dashboard displays ranked candidates with an embedded **TradingView** chart.
-4.  **Database:** Data is synced through a local **SQLite** database (`trading.db`), kept private to each user.
-
-
-
----
-
-## 🚀 Getting Started (Mac & Windows)
-
-We have standardized the project on **Python 3.11.x**. Follow these steps to get up and running:
-
-### 1. Clone the Project
-Open your terminal or command prompt and run:
-```bash
-git clone https://github.com/vaidyaabhi/TradeFilter.git
-cd TradeFilter
-```
-2. Run the One-Command Setup
-This script automatically detects your OS, creates a venv, installs all libraries, and initializes your database:
-```Bash
-python setup.py
-```
-3. Activate Your Environment
-Once the setup is finished, you MUST activate the virtual environment in every new terminal window:
-
-macOS:
-```Bash
-source venv/bin/activate
-```
-Windows:
-```PowerShell
-.\venv\Scripts\activate
-```
+## 🚦 Daily Morning Routine
+1. **Login**: `python login_manager.py`
+2. **Listen**: `python backend_listener.py`
+3. **Launch**: `streamlit run dashboard_ui.py`
