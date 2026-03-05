@@ -1,82 +1,104 @@
 import os
 import sqlite3
+import pandas as pd  # Added this to fix the error
 from datetime import datetime
 from dotenv import load_dotenv
 from fyers_apiv3 import fyersModel
 
-# Always load the fresh token from .env
 load_dotenv(override=True)
 
 class ProSimulator:
-    def __init__(self, limit=2):
-        self.limit = limit
+    def __init__(self, db_path="trading.db"):
+        self.db_path = db_path
         self.client_id = os.getenv("FYERS_CLIENT_ID")
         self.access_token = os.getenv("FYERS_ACCESS_TOKEN")
-        
-        # Initialize Fyers Model
+        # Initialize Fyers
         self.fyers = fyersModel.FyersModel(
             client_id=self.client_id, 
             token=self.access_token, 
             is_async=False, 
-            log_path=""
+            log_path="/tmp"
         )
+        self._init_db()
 
-    def get_fyers_balance(self):
-        """Fetches live Available Balance from Fyers"""
+    def _init_db(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''CREATE TABLE IF NOT EXISTS trades 
+                        (symbol TEXT, side TEXT, entry_price REAL, exit_price REAL, status TEXT, timestamp TEXT)''')
+        
+        # Schema migration to ensure all columns exist
+        cursor.execute("PRAGMA table_info(trades)")
+        columns = [column[1] for column in cursor.fetchall()]
+        for col in ['entry_price', 'exit_price']:
+            if col not in columns:
+                cursor.execute(f"ALTER TABLE trades ADD COLUMN {col} REAL DEFAULT 0.0")
+        if 'status' not in columns:
+            cursor.execute("ALTER TABLE trades ADD COLUMN status TEXT DEFAULT 'OPEN'")
+        conn.commit()
+        conn.close()
+
+    def get_balance(self):
         try:
             funds = self.fyers.funds()
             if funds.get('s') == 'ok':
-                # Extract 'Total Balance' from the fund_limit list
                 for item in funds.get('fund_limit', []):
-                    if item.get('title') == 'Total Balance':
-                        return float(item.get('value', 0.0))
-        except Exception:
-            return 0.0
+                    # Fixed for your specific account structure
+                    if item.get('title') == 'Available Balance':
+                        return float(item.get('equityAmount', 0.0))
+        except:
+            pass
         return 0.0
 
-    def get_session_stats(self):
-        """Calculates trade count and active positions from DB"""
-        conn = sqlite3.connect('trading.db')
-        cursor = conn.cursor()
-        
-        # Count trades taken today
-        cursor.execute("SELECT COUNT(*) FROM trades WHERE date(timestamp) = date('now')")
-        count = cursor.fetchone()[0]
-        
-        # Get active trades for the table
-        cursor.execute("SELECT symbol, side, entry_price, status, timestamp FROM trades ORDER BY timestamp DESC")
-        rows = cursor.fetchall()
-        
-        active_trades = []
-        for r in rows:
-            active_trades.append({
-                "Symbol": r[0], "Side": r[1], 
-                "Entry": r[2], "Status": r[3], "Time": r[4]
-            })
-            
-        conn.close()
-        return {
-            "pnl": 0.00, "pnl_pct": 0.0, 
-            "count": count, "active_trades": active_trades
-        }
+    def get_ltp(self, symbol):
+        try:
+            data = {"symbols": f"NSE:{symbol}-EQ"}
+            res = self.fyers.quotes(data)
+            if res.get('s') == 'ok':
+                return res['d'][0]['v']['lp']
+        except:
+            pass
+        return 0.0
 
     def execute_trade(self, symbol, side):
-        """Checks limits and saves trade to DB"""
-        stats = self.get_session_stats()
-        if stats['count'] >= self.limit:
-            return False, f"Limit Reached ({self.limit}/{self.limit}). Discipline first!"
+        price = self.get_ltp(symbol)
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("INSERT INTO trades (symbol, side, entry_price, status, timestamp) VALUES (?, ?, ?, ?, ?)", 
+                     (symbol, side, price, "OPEN", datetime.now().strftime("%H:%M:%S")))
+        conn.commit()
+        conn.close()
+        return price
 
-        conn = sqlite3.connect('trading.db')
-        cursor = conn.cursor()
-        try:
-            # For now, we use a mock price of 0.00. 
-            # In live v9, we would fetch ltp from self.fyers.get_quotes()
-            now = datetime.now().strftime("%H:%M:%S")
-            cursor.execute("INSERT INTO trades (symbol, side, entry_price, status, timestamp) VALUES (?, ?, ?, ?, ?)",
-                           (symbol, side, 0.00, "MONITORING", now))
-            conn.commit()
-            return True, f"Monitoring {symbol} for {side} breakout"
-        except Exception as e:
-            return False, str(e)
-        finally:
-            conn.close()
+    def exit_trade(self, rowid, symbol):
+        price = self.get_ltp(symbol)
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("UPDATE trades SET status='CLOSED', exit_price=? WHERE rowid=?", (price, rowid))
+        conn.commit()
+        conn.close()
+
+    def get_performance(self):
+        conn = sqlite3.connect(self.db_path)
+        # Using rowid for unique button keys
+        df = pd.read_sql("SELECT rowid, * FROM trades ORDER BY timestamp DESC", conn)
+        conn.close()
+        
+        total_pnl = 0.0
+        wins = 0
+        closed_count = 0
+        processed = []
+        
+        for _, t in df.iterrows():
+            if t['status'] == "OPEN":
+                ltp = self.get_ltp(t['symbol'])
+                pnl = (ltp - t['entry_price']) if t['side'] == "BUY" else (t['entry_price'] - ltp)
+            else:
+                ltp = t['exit_price']
+                pnl = (t['exit_price'] - t['entry_price']) if t['side'] == "BUY" else (t['entry_price'] - t['exit_price'])
+                closed_count += 1
+                if pnl > 0: wins += 1
+            
+            total_pnl += pnl
+            processed.append({**t, 'ltp': ltp, 'pnl': pnl})
+            
+        win_rate = (wins / closed_count * 100) if closed_count > 0 else 0
+        return processed, total_pnl, win_rate, len(df)
